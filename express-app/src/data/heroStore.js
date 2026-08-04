@@ -94,17 +94,33 @@ function createMemoryStore() {
         .map(({ hero_id, ...rest }) => rest);
     },
 
-    async findArchive({ limit = 1400 } = {}) {
+    async findArchive({ limit = 1400, search, heroIds } = {}) {
       // The seed dropped the redundant hero name and team when it normalized;
       // this puts them back by joining, which is what the database does too.
       const byId = new Map(seedHeroes.map((hero) => [hero.id, hero]));
-      return archiveEntries.slice(0, limit).map((entry) => ({
-        ...entry,
-        heroes: {
-          name: byId.get(entry.hero_id).name,
-          team: byId.get(entry.hero_id).team,
-        },
-      }));
+      const needle = search?.toLowerCase();
+
+      const matches = archiveEntries.filter((entry) => {
+        if (heroIds && !heroIds.includes(entry.hero_id)) return false;
+        if (!needle) return true;
+        const hero = byId.get(entry.hero_id);
+        return (
+          entry.note.toLowerCase().includes(needle) ||
+          entry.location.toLowerCase().includes(needle) ||
+          hero.name.toLowerCase().includes(needle)
+        );
+      });
+
+      return {
+        total: matches.length,
+        rows: matches.slice(0, limit).map((entry) => ({
+          ...entry,
+          heroes: {
+            name: byId.get(entry.hero_id).name,
+            team: byId.get(entry.hero_id).team,
+          },
+        })),
+      };
     },
   };
 }
@@ -221,18 +237,36 @@ function createSupabaseStore(client) {
       );
     },
 
-    async findArchive({ limit = 1400 } = {}) {
+    async findArchive({ limit = 1400, search, heroIds } = {}) {
       // `heroes(name, team)` is the join. The schema dropped `team` from the
       // archive because it was duplicated on all 1,400 rows; this recovers it
       // through the foreign key, which is the whole reason to normalize —
       // stored once, joined on demand.
-      return unwrap(
-        await client
-          .from("archive_entries")
-          .select("id, note, location, year, heroes(name, team)")
-          .order("id")
-          .limit(limit),
-      );
+      //
+      // `count: "exact"` asks Postgres for the total number of matches
+      // alongside the page, so the UI can say "50 of 700" without fetching 700.
+      let query = client
+        .from("archive_entries")
+        .select("id, note, location, year, heroes(name, team)", { count: "exact" });
+
+      // Filtering by hero is an id lookup, which is what idx_archive_hero
+      // exists for. The caller resolves names and teams to ids first — the
+      // roster is eighteen rows, so matching against it is free, while the
+      // 1,400-row table is the one that needs an index.
+      if (heroIds) query = query.in("hero_id", heroIds);
+
+      if (search) {
+        const pattern = `%${search}%`;
+        // Postgres does the text scan across both columns. Rows that do not
+        // match never cross the network, which is the entire point — the
+        // client used to receive all 1,400 and discard most of them.
+        query = query.or(`note.ilike.${pattern},location.ilike.${pattern}`);
+      }
+
+      const { data, error, count } = await query.order("id").limit(limit);
+      if (error) throw new Error(`Supabase query failed: ${error.message}`);
+
+      return { total: count ?? data.length, rows: data };
     },
   };
 }

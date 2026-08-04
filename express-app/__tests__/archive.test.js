@@ -54,6 +54,55 @@ describe("Archive API", () => {
     expect(response.body.code).toBe("INVALID_ID");
   });
 
+  it("filters by team in the database rather than shipping every row", async () => {
+    const response = await request(app).get("/archive?team=Avengers");
+
+    expect(response.status).toBe(200);
+    expect(response.body.total).toBe(700);
+    expect(response.body.entries.every((e) => e.team === "Avengers")).toBe(true);
+  });
+
+  it("searches hero name, note, and city as a union", async () => {
+    // The three fields live in two tables, so this is the case most likely to
+    // be quietly wrong — filtering by hero alone would drop rows whose note
+    // matched but whose hero did not.
+    const byHero = await request(app).get("/archive?search=Aquaman");
+    expect(byHero.body.entries.every((e) => e.hero === "Aquaman")).toBe(true);
+    expect(byHero.body.total).toBeGreaterThan(0);
+
+    const byCity = await request(app).get("/archive?search=Gotham");
+    expect(byCity.body.total).toBeGreaterThan(0);
+    expect(byCity.body.entries.every((e) => e.city === "Gotham City")).toBe(true);
+
+    const byNote = await request(app).get("/archive?search=note 0001");
+    expect(byNote.body.entries[0].note).toBe("Archive note 0001");
+  });
+
+  it("intersects a search with a team filter instead of unioning them", async () => {
+    // Atlantis is Aquaman's city and Aquaman is Justice League, so asking for
+    // Atlantis on the Avengers must return nothing rather than everything.
+    const response = await request(app).get("/archive?search=Atlantis&team=Avengers");
+
+    expect(response.status).toBe(200);
+    expect(response.body.total).toBe(0);
+  });
+
+  it("reports total separately from the page it returned", async () => {
+    // A client needs both to say "showing 5 of 700".
+    const response = await request(app).get("/archive?team=Avengers&limit=5");
+
+    expect(response.body.count).toBe(5);
+    expect(response.body.total).toBe(700);
+  });
+
+  it("returns nothing for a search that matches nothing", async () => {
+    const response = await request(app).get("/archive?search=Zatanna");
+
+    expect(response.status).toBe(200);
+    expect(response.body.total).toBe(0);
+    expect(response.body.entries).toEqual([]);
+  });
+
   it("returns one hero's briefings", async () => {
     const response = await request(app).get("/heroes/1/archive?limit=3");
 
