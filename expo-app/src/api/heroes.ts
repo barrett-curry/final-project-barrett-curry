@@ -13,13 +13,25 @@ export interface HeroSummary {
   team: string;
 }
 
+/**
+ * An ally or enemy. `id` is null for supporting characters who are not heroes
+ * in their own right (Alfred, Aunt May), which is how the screen decides what
+ * to make a link and what to leave as plain text. The server resolves this
+ * against the real roster — the client used to do it with a hardcoded table
+ * that sent five names to the wrong hero.
+ */
+export interface RelatedCharacter {
+  name: string;
+  id: number | null;
+}
+
 export interface HeroDetail extends HeroSummary {
   origin?: string;
   firstAppearance?: string;
   creator?: string;
   location?: string;
-  allies?: string[];
-  enemies?: string[];
+  allies?: RelatedCharacter[];
+  enemies?: RelatedCharacter[];
   quote?: string;
   stats?: Record<string, number>;
   /** Null when the hero has no stat block — see the note in heroService.js. */

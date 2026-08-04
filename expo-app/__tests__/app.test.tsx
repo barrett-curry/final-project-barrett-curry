@@ -148,6 +148,29 @@ describe("Expo superhero app", () => {
     expect(screen.getByText("Hero not found")).toBeTruthy();
   });
 
+  it("renders a hero who has no stat block instead of claiming they do not exist", () => {
+    // Regression test. The directory listed eighteen heroes but the detail
+    // screen read from a hardcoded object holding eight, so tapping any of the
+    // other ten showed "Hero not found" for a hero visible on the previous
+    // screen. Both screens now read the same source.
+    mockedUseLocalSearchParams.mockReturnValue({ id: "18" });
+
+    render(<Detail />);
+
+    expect(screen.queryByText("Hero not found")).toBeNull();
+    expect(screen.getByText("No stat block on file for this hero.")).toBeTruthy();
+  });
+
+  it("shows the power score the API computed rather than recomputing it", () => {
+    mockedUseLocalSearchParams.mockReturnValue({ id: "1" });
+
+    render(<Detail />);
+
+    // 8 + 7 + 9 + 6 + 4 + 8. One definition of "how strong is this", on the
+    // server, instead of the client and the server each having their own.
+    expect(screen.getByText(/Power score: 42\/60/)).toBeTruthy();
+  });
+
   it("navigates to an ally detail page from the hero page", () => {
     mockedUseLocalSearchParams.mockReturnValue({ id: "1" });
 
