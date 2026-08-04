@@ -20,15 +20,4 @@ router.get("/", (req, res) => {
   });
 });
 
-// Kept because a test guards it. It is a leftover scratch endpoint with no
-// caller, and the honest fix is to delete it and the test together — but that
-// is a breaking change to the public surface, so it belongs in its own commit
-// with a MAJOR version bump rather than smuggled into a refactor.
-router.get("/bug", (req, res) => {
-  res.json({
-    message: "Bug Pokémon endpoint hit",
-    venomoth: "a cool bug Pokémon",
-  });
-});
-
 export default router;

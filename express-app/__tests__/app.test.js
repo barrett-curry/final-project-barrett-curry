@@ -276,11 +276,16 @@ describe("Pokédex API", () => {
     expect(response.body.error).toBe("Trainer not found");
   });
 
-  it("keeps the bug endpoint working without throwing", async () => {
+  it("no longer serves the removed scratch endpoint", async () => {
+    // /bug returned a hardcoded string about Venomoth and had no caller. The
+    // test that guarded it was the only reason it survived the refactor, which
+    // is a test doing the opposite of its job: pinning dead code in place.
+    // Removing a public route is a breaking change, so it is its own commit and
+    // its own MAJOR note in the changelog rather than smuggled into a cleanup.
     const response = await request(app).get("/bug");
 
-    expect(response.status).toBe(200);
-    expect(response.body.venomoth).toBe("a cool bug Pokémon");
+    expect(response.status).toBe(404);
+    expect(response.body.code).toBe("ROUTE_NOT_FOUND");
   });
 
   it("returns a sorted Pokémon library", async () => {
