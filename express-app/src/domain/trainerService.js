@@ -36,13 +36,22 @@ export function listByHometown(city) {
   return matches.map(formatTrainer);
 }
 
+// `filter(Boolean)` matters: a team can name a Pokémon id that no longer
+// exists, and the lookup returns undefined for it. That also means a team can
+// come back empty even when the trainer lists members — which is why
+// everything below has to survive an empty team rather than assume one.
 const teamOf = (trainer) =>
   trainer.team.map((pokemonId) => repository.findPokemonById(pokemonId)).filter(Boolean);
 
 export function teamSummary(trainer) {
   const team = teamOf(trainer);
+  // `reduce` with no initial value throws on an empty array, so `maxBy` is only
+  // safe once there is something to compare. Both seeded trainers have full
+  // teams, which is exactly why this crashed silently for so long: the bug was
+  // unreachable with the current data and would have surfaced the first time
+  // someone added a trainer without one, as a 500 with a TypeError in the log.
+  const strongest = team.length ? maxBy(team, powerRating) : null;
   const totalPower = sumBy(team, powerRating);
-  const strongest = maxBy(team, powerRating);
 
   return {
     trainer: {
@@ -55,12 +64,13 @@ export function teamSummary(trainer) {
     summary: {
       totalMembers: team.length,
       totalPower,
-      averagePower: round1(totalPower / team.length),
-      strongestPokemon: {
-        id: strongest.id,
-        name: strongest.name,
-        powerRating: powerRating(strongest),
-      },
+      // 0/0 is NaN, which does not survive JSON — it serializes to null anyway,
+      // but by accident rather than on purpose. Saying null deliberately means
+      // "no average exists", which is true of a trainer with no Pokémon.
+      averagePower: team.length ? round1(totalPower / team.length) : null,
+      strongestPokemon: strongest
+        ? { id: strongest.id, name: strongest.name, powerRating: powerRating(strongest) }
+        : null,
       typeCoverage: [...new Set(team.flatMap((entry) => entry.type))],
     },
   };
@@ -68,11 +78,13 @@ export function teamSummary(trainer) {
 
 export function acePokemon(trainer) {
   const team = teamOf(trainer);
-  const ace = maxBy(team, powerRating);
+  const ace = team.length ? maxBy(team, powerRating) : null;
 
   return {
     trainer: formatTrainer(trainer),
-    ace: { id: ace.id, name: ace.name, powerRating: powerRating(ace) },
+    // A trainer with no Pokémon has no ace. Null says that; inventing one or
+    // throwing would both be worse answers to a legitimate question.
+    ace: ace ? { id: ace.id, name: ace.name, powerRating: powerRating(ace) } : null,
     teamPower: sumBy(team, powerRating),
   };
 }
