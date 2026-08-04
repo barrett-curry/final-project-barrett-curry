@@ -11,6 +11,7 @@ import express from "express";
 
 import { errorHandler, notFoundHandler } from "./src/middleware/errorHandler.js";
 import { requestLogger } from "./src/middleware/requestLogger.js";
+import heroRoutes from "./src/routes/heroRoutes.js";
 import metaRoutes from "./src/routes/metaRoutes.js";
 import pokemonRoutes from "./src/routes/pokemonRoutes.js";
 import statsRoutes from "./src/routes/statsRoutes.js";
@@ -31,6 +32,10 @@ app.use("/", metaRoutes);
 app.use("/pokemon", pokemonRoutes);
 app.use("/trainers", trainerRoutes);
 app.use("/stats", statsRoutes);
+// Adding a whole second resource is one line here, because the layering means
+// heroes bring their own connector, service, and router rather than being
+// spliced into someone else's file.
+app.use("/heroes", heroRoutes);
 
 // Anything that matched no route above is a 404, answered as JSON.
 app.use(notFoundHandler);
