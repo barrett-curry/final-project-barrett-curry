@@ -8,7 +8,44 @@ describe("Pokédex API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.message).toBe("Welcome to the Pokédex API!");
-    expect(response.body.endpoints["GET /pokemon"]).toBe("Get all Pokémon");
+    expect(response.body.endpoints.pokemon).toContainEqual({
+      method: "GET",
+      path: "/pokemon",
+    });
+  });
+
+  it("advertises every route it actually serves, and no others", async () => {
+    // This is the point of generating the index rather than writing it. The old
+    // hand-maintained version listed 7 endpoints out of 28 and did not mention
+    // /heroes, /archive, or /health — it had gone stale inside one working
+    // session. A list that is derived cannot drift; this proves it stays that
+    // way by walking every advertised path and confirming the app routes it.
+    const { body } = await request(app).get("/");
+    const advertised = Object.values(body.endpoints).flat();
+
+    expect(advertised).toHaveLength(body.count);
+    expect(body.count).toBeGreaterThan(25);
+
+    // Parameterised paths need a plausible value substituted before they can be
+    // requested. Anything that comes back ROUTE_NOT_FOUND is advertised but not
+    // mounted, which is exactly the lie this endpoint used to tell.
+    const sample = (path) =>
+      path
+        .replace(/:firstId/, "1")
+        .replace(/:secondId/, "2")
+        .replace(/:id\b/, "1")
+        .replace(/:stat/, "attack")
+        .replace(/:type/, "Fire")
+        .replace(/:city/, "Pallet Town")
+        .replace(/:team/, "Avengers");
+
+    const missing = [];
+    for (const { path } of advertised) {
+      const res = await request(app).get(sample(path));
+      if (res.body?.code === "ROUTE_NOT_FOUND") missing.push(path);
+    }
+
+    expect(missing).toEqual([]);
   });
 
   it("returns the full Pokémon list and count", async () => {

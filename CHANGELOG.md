@@ -22,6 +22,11 @@ consumer of the thing would notice.
 - **BREAKING** — `strongestPokemon`, `averagePower`, and `ace` can now be
   `null`. See the bug fix below; a client that assumed those were always objects
   needs to check.
+- **BREAKING** — `GET /` changed shape. `endpoints` was a flat object of
+  `"GET /pokemon": "description"` strings; it is now grouped by resource, with
+  each entry `{ method, path }`, plus a `count`. It had to change because it is
+  now generated rather than written, and a generated list has no descriptions to
+  invent.
 - `MINOR` — `GET /archive` takes `?search=` and `?team=`, and responses carry
   `total` alongside `count`.
 - `MINOR` — `GET /health` reports which hero store answered.

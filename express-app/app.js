@@ -14,7 +14,7 @@ import { requestLogger } from "./src/middleware/requestLogger.js";
 import archiveRoutes from "./src/routes/archiveRoutes.js";
 import healthRoutes from "./src/routes/healthRoutes.js";
 import heroRoutes from "./src/routes/heroRoutes.js";
-import metaRoutes from "./src/routes/metaRoutes.js";
+import { createMetaRoutes } from "./src/routes/metaRoutes.js";
 import pokemonRoutes from "./src/routes/pokemonRoutes.js";
 import statsRoutes from "./src/routes/statsRoutes.js";
 import trainerRoutes from "./src/routes/trainerRoutes.js";
@@ -30,19 +30,36 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
-// Before the resource routes: a health probe should stay cheap and should not
-// be affected by anything the rest of the app does.
-app.use("/health", healthRoutes);
+/**
+ * Every resource, mounted once and described once.
+ *
+ * This table is the single source of truth for prefixes. `GET /` walks it to
+ * generate its own endpoint list, so the API cannot advertise routes it does
+ * not have or omit ones it does — the previous hand-written list had drifted to
+ * 7 entries out of 28 within a single working session.
+ */
+const mounts = [
+  { prefix: "/health", router: healthRoutes, resource: "health" },
+  { prefix: "/pokemon", router: pokemonRoutes, resource: "pokemon" },
+  { prefix: "/trainers", router: trainerRoutes, resource: "trainers" },
+  { prefix: "/stats", router: statsRoutes, resource: "stats" },
+  { prefix: "/heroes", router: heroRoutes, resource: "heroes" },
+  { prefix: "/archive", router: archiveRoutes, resource: "archive" },
+];
 
-app.use("/", metaRoutes);
-app.use("/pokemon", pokemonRoutes);
-app.use("/trainers", trainerRoutes);
-app.use("/stats", statsRoutes);
-// Adding a whole second resource is one line here, because the layering means
-// heroes bring their own connector, service, and router rather than being
-// spliced into someone else's file.
-app.use("/heroes", heroRoutes);
-app.use("/archive", archiveRoutes);
+// The index needs the table, so it is built from it and mounted alongside.
+mounts.unshift({
+  prefix: "/",
+  router: createMetaRoutes(mounts),
+  resource: "meta",
+});
+
+for (const { prefix, router } of mounts) {
+  app.use(prefix, router);
+}
+
+/** Exported so anything documenting the API reads the same list the app serves. */
+export { mounts };
 
 // Anything that matched no route above is a 404, answered as JSON.
 app.use(notFoundHandler);

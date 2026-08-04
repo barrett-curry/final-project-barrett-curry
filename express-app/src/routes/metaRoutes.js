@@ -1,23 +1,27 @@
 // Routes about the API itself rather than about a resource.
 import { Router } from "express";
 
-const router = Router();
+import { buildCatalog, groupByResource } from "./catalog.js";
 
-// A self-describing index. Cheap to keep accurate and it means a new client can
-// discover what exists without the README.
-router.get("/", (req, res) => {
-  res.json({
-    message: "Welcome to the Pokédex API!",
-    endpoints: {
-      "GET /": "This welcome message",
-      "GET /pokemon": "Get all Pokémon",
-      "GET /pokemon/:id": "Get a specific Pokémon by ID",
-      "GET /pokemon/type/:type": "Get Pokémon by type",
-      "GET /pokemon/search": "Search Pokémon by name",
-      "GET /trainers": "Get all trainers",
-      "GET /stats": "Get Pokédex statistics",
-    },
+/**
+ * Built as a factory rather than exported directly, because it needs the mount
+ * table and the mount table needs it. Passing it in breaks the cycle that
+ * importing it would create.
+ */
+export function createMetaRoutes(mounts) {
+  const router = Router();
+
+  // A self-describing index, generated from the routers rather than typed out.
+  // The previous hand-written version listed 7 of 28 endpoints.
+  router.get("/", (req, res) => {
+    const catalog = buildCatalog(mounts);
+
+    res.json({
+      message: "Welcome to the Pokédex API!",
+      count: catalog.length,
+      endpoints: groupByResource(catalog),
+    });
   });
-});
 
-export default router;
+  return router;
+}
