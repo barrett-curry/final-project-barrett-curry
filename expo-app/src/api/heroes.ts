@@ -82,7 +82,32 @@ export interface ArchiveEntry {
   team: string;
 }
 
-export async function fetchArchive(): Promise<ArchiveEntry[]> {
-  const body = await fetchJson<{ count: number; entries: ArchiveEntry[] }>("/archive");
-  return body.entries;
+export interface ArchivePage {
+  /** How many rows came back. */
+  count: number;
+  /** How many matched in total, which is larger when a limit truncated. */
+  total: number;
+  entries: ArchiveEntry[];
+}
+
+/**
+ * Archive briefings, filtered by the database.
+ *
+ * The filters are query parameters rather than something applied after the
+ * fetch, so a search for one hero transfers a few dozen rows instead of all
+ * 1,400 and then discarding 1,350 of them.
+ */
+export async function fetchArchive({
+  search,
+  team,
+  limit,
+}: { search?: string; team?: string; limit?: number } = {}): Promise<ArchivePage> {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  // "All" is the screen's word for no filter; the API's word for it is absence.
+  if (team && team !== "All") params.set("team", team);
+  if (limit) params.set("limit", String(limit));
+
+  const query = params.toString();
+  return fetchJson<ArchivePage>(`/archive${query ? `?${query}` : ""}`);
 }

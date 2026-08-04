@@ -712,10 +712,6 @@ const styles = StyleSheet.create({
 
 
 function HeroArchivePanel() {
-  // 1,400 rows used to be a string literal in this file, re-split on every
-  // render. They now live in Postgres and arrive over the API.
-  const { entries: heroArchiveEntries } = useArchive();
-
   const [query, setQuery] = useState("");
   const [teamFilter, setTeamFilter] = useState<
     "All" | "Avengers" | "Justice League"
@@ -724,17 +720,15 @@ function HeroArchivePanel() {
   const [spotlightIndex, setSpotlightIndex] = useState(0);
   const [pinnedIndexes, setPinnedIndexes] = useState<number[]>([]);
 
-  const filtered = heroArchiveEntries.filter((entry) => {
-    const normalizedQuery = query.toLowerCase();
-    const matchesSearch =
-      entry.hero.toLowerCase().includes(normalizedQuery) ||
-      entry.note.toLowerCase().includes(normalizedQuery) ||
-      entry.city.toLowerCase().includes(normalizedQuery);
-    const matchesTeam = teamFilter === "All" || entry.team === teamFilter;
+  // The search box and the team filter are arguments to the query, not a pass
+  // over an array this component holds. 1,400 rows used to be a string literal
+  // in this file, re-split and re-filtered on every keystroke; Postgres now
+  // does the filtering and only the matches cross the network.
+  const { entries: filtered } = useArchive({ search: query, team: teamFilter });
 
-    return matchesSearch && matchesTeam;
-  });
-
+  // Sorting stays here on purpose. It reorders what came back rather than
+  // choosing what comes back, so it costs one pass over the rows already on
+  // screen and saves a round trip every time the user flips the order.
   const sorted = [...filtered].sort((left, right) => {
     if (sortMode === "hero") {
       return left.hero.localeCompare(right.hero);

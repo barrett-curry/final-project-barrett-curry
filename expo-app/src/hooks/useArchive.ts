@@ -1,38 +1,59 @@
 // Loading state for the archive briefings.
 //
-// Same three-state shape as useHeroes. Kept as its own hook rather than folded
-// into that one because the archive is a different screen's data: the directory
-// should not wait on 1,400 rows it is not going to show.
-import { useEffect, useState } from "react";
+// The filters are arguments rather than something the caller applies to the
+// result, because the database is what does the filtering now. The screen says
+// what it wants; this fetches exactly that.
+import { useEffect, useRef, useState } from "react";
 
 import { fetchArchive, type ArchiveEntry } from "../api/heroes";
 
 type Status = "loading" | "ready" | "error";
 
-export function useArchive() {
+/** How long to wait after the last keystroke before asking the server. */
+const DEBOUNCE_MS = 250;
+
+export function useArchive({ search = "", team = "All" } = {}) {
   const [entries, setEntries] = useState<ArchiveEntry[]>([]);
+  const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<Status>("loading");
+
+  // Every render of the panel would otherwise fire a request per keystroke.
+  // Debouncing means typing "Aquaman" is one request instead of seven, and the
+  // cleanup cancels the pending timer so an abandoned prefix never fires.
+  const latest = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    const timer = setTimeout(() => {
+      const requestId = ++latest.current;
+      setStatus("loading");
 
-    fetchArchive()
-      .then((list) => {
-        if (cancelled) return;
-        setEntries(list);
-        setStatus("ready");
-      })
-      .catch(() => {
-        // The archive is a secondary panel on a screen that works without it,
-        // so a failure here shows an empty archive rather than taking down the
-        // whole directory.
-        if (!cancelled) setStatus("error");
-      });
+      fetchArchive({ search, team })
+        .then((page) => {
+          // Responses can arrive out of order — a slow request for "Aqua" can
+          // land after a fast one for "Aquaman" and overwrite it with stale
+          // results. Only the most recent request is allowed to set state.
+          if (cancelled || requestId !== latest.current) return;
+          setEntries(page.entries);
+          setTotal(page.total);
+          setStatus("ready");
+        })
+        .catch(() => {
+          if (cancelled || requestId !== latest.current) return;
+          // The archive is a secondary panel on a screen that works without it,
+          // so a failure shows an empty archive rather than taking the whole
+          // directory down.
+          setEntries([]);
+          setTotal(0);
+          setStatus("error");
+        });
+    }, DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [search, team]);
 
-  return { entries, status };
+  return { entries, total, status };
 }

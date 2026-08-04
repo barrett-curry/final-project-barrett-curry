@@ -30,13 +30,29 @@ jest.mock("./src/hooks/useHeroes", () => ({
 }));
 
 // Same reasoning as the useHeroes mock above: the archive panel's tests are
-// about search, filter, and sort over a known set of rows, not about whether
-// fetch works. The fixture is the exact payload GET /archive returns.
+// about what the screen renders, not about whether fetch works.
+//
+// This applies the same filtering rules the API does, against the fixture the
+// database is seeded from. That is the part worth getting right — filtering
+// moved to the server, so a mock that ignored the arguments would let the panel
+// pass its tests while showing the wrong rows in production. The semantics have
+// to match: a search is a union across hero, note, and city; a team filter
+// intersects with it.
 jest.mock("./src/hooks/useArchive", () => ({
-  useArchive: () => ({
-    entries: require("./__tests__/fixtures/archive.json"),
-    status: "ready",
-  }),
+  useArchive: ({ search = "", team = "All" } = {}) => {
+    const needle = search.toLowerCase();
+    const entries = require("./__tests__/fixtures/archive.json").filter((entry) => {
+      if (team !== "All" && entry.team !== team) return false;
+      if (!needle) return true;
+      return (
+        entry.hero.toLowerCase().includes(needle) ||
+        entry.note.toLowerCase().includes(needle) ||
+        entry.city.toLowerCase().includes(needle)
+      );
+    });
+
+    return { entries, total: entries.length, status: "ready" };
+  },
 }));
 
 // The detail screen's tests are about rendering a hero, not about fetching one.
