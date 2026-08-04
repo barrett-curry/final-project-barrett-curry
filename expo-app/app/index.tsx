@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,136 +11,42 @@ import {
 import { router } from "expo-router";
 import { useState } from "react";
 
-const superheroes = [
-  {
-    id: 1,
-    name: "Spider-Man",
-    realName: "Peter Parker",
-    powers: ["Web-slinging", "Spider-sense", "Super strength"],
-    team: "Avengers",
-  },
-  {
-    id: 2,
-    name: "Wonder Woman",
-    realName: "Diana Prince",
-    powers: ["Super strength", "Flight", "Lasso of Truth"],
-    team: "Justice League",
-  },
-  {
-    id: 3,
-    name: "Iron Man",
-    realName: "Tony Stark",
-    powers: ["Genius intellect", "Powered armor", "Arc reactor"],
-    team: "Avengers",
-  },
-  {
-    id: 4,
-    name: "Batman",
-    realName: "Bruce Wayne",
-    powers: ["Martial arts", "Detective skills", "Advanced technology"],
-    team: "Justice League",
-  },
-  {
-    id: 5,
-    name: "Captain Marvel",
-    realName: "Carol Danvers",
-    powers: ["Energy projection", "Flight", "Super strength"],
-    team: "Avengers",
-  },
-  {
-    id: 6,
-    name: "The Flash",
-    realName: "Barry Allen",
-    powers: ["Super speed", "Time travel", "Speed force"],
-    team: "Justice League",
-  },
-  {
-    id: 7,
-    name: "Black Widow",
-    realName: "Natasha Romanoff",
-    powers: ["Master spy", "Combat skills", "Weapons expert"],
-    team: "Avengers",
-  },
-  {
-    id: 8,
-    name: "Aquaman",
-    realName: "Arthur Curry",
-    powers: ["Underwater breathing", "Marine telepathy", "Trident mastery"],
-    team: "Justice League",
-  },
-  {
-    id: 9,
-    name: "Thor",
-    realName: "Thor Odinson",
-    powers: ["God of Thunder", "Mjolnir mastery", "Super strength"],
-    team: "Avengers",
-  },
-  {
-    id: 10,
-    name: "Green Lantern",
-    realName: "Hal Jordan",
-    powers: ["Power ring", "Energy constructs", "Flight"],
-    team: "Justice League",
-  },
-  {
-    id: 11,
-    name: "Hulk",
-    realName: "Bruce Banner",
-    powers: ["Incredible strength", "Regeneration", "Gamma radiation"],
-    team: "Avengers",
-  },
-  {
-    id: 12,
-    name: "Supergirl",
-    realName: "Kara Zor-El",
-    powers: ["Super strength", "Flight", "Heat vision"],
-    team: "Justice League",
-  },
-  {
-    id: 13,
-    name: "Doctor Strange",
-    realName: "Stephen Strange",
-    powers: ["Mystic arts", "Time manipulation", "Dimensional travel"],
-    team: "Avengers",
-  },
-  {
-    id: 14,
-    name: "Cyborg",
-    realName: "Victor Stone",
-    powers: ["Cybernetic enhancement", "Technology interface", "Energy cannon"],
-    team: "Justice League",
-  },
-  {
-    id: 15,
-    name: "Scarlet Witch",
-    realName: "Wanda Maximoff",
-    powers: ["Reality manipulation", "Chaos magic", "Telekinesis"],
-    team: "Avengers",
-  },
-  {
-    id: 16,
-    name: "Green Arrow",
-    realName: "Oliver Queen",
-    powers: ["Master archer", "Martial arts", "Trick arrows"],
-    team: "Justice League",
-  },
-  {
-    id: 17,
-    name: "Captain America",
-    realName: "Steve Rogers",
-    powers: ["Super soldier serum", "Vibranium shield", "Enhanced reflexes"],
-    team: "Avengers",
-  },
-  {
-    id: 18,
-    name: "Martian Manhunter",
-    realName: "J'onn J'onzz",
-    powers: ["Shape-shifting", "Telepathy", "Martian vision"],
-    team: "Justice League",
-  },
-];
+import type { HeroSummary } from "../src/api/heroes";
+import { useHeroes } from "../src/hooks/useHeroes";
+
+
 
 export default function Index() {
+  const { heroes, status, error, reload } = useHeroes();
+
+  if (status === "loading") {
+    return (
+      <View style={styles.stateContainer} testID="heroes-loading">
+        <ActivityIndicator size="large" />
+        <Text style={styles.stateText}>Loading heroes…</Text>
+      </View>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <View style={styles.stateContainer} testID="heroes-error">
+        <Text style={styles.stateTitle}>Could not load heroes</Text>
+        <Text style={styles.stateText}>{error}</Text>
+        <Pressable style={styles.stateButton} onPress={reload} testID="heroes-retry">
+          <Text style={styles.stateButtonText}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return <HeroDirectory superheroes={heroes} />;
+}
+
+// The screen itself. It takes the roster as a prop and knows nothing about
+// where it came from, which is what makes it renderable in a test without a
+// network.
+function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
   const [visibleHeroes, setVisibleHeroes] = useState(superheroes);
   const [snappedHeroes, setSnappedHeroes] = useState<typeof superheroes>([]);
   const [isSnapped, setIsSnapped] = useState(false);
@@ -453,6 +360,23 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
+  stateContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    gap: 12,
+  },
+  stateTitle: { fontSize: 18, fontWeight: "700" },
+  stateText: { fontSize: 14, opacity: 0.7, textAlign: "center" },
+  stateButton: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#2563eb",
+  },
+  stateButtonText: { color: "#fff", fontWeight: "600" },
   container: {
     flex: 1,
     backgroundColor: "#f0f2f5",
