@@ -37,6 +37,23 @@ describe("Hero API", () => {
     expect(response.body.powerScore).toBe(42);
   });
 
+  it("resolves ally names to ids, and to null for non-heroes", async () => {
+    const response = await request(app).get("/heroes/1");
+
+    const allies = Object.fromEntries(
+      response.body.allies.map((ally) => [ally.name, ally.id]),
+    );
+
+    // Iron Man is hero 3. The client's old hardcoded table said 3 as well, but
+    // it had Captain America at 1 (Spider-Man) and Doctor Strange at 1 too —
+    // five names in that table pointed at the hero whose page they appeared on.
+    expect(allies["Iron Man"]).toBe(3);
+    expect(allies["Captain America"]).toBe(17);
+    expect(allies["Doctor Strange"]).toBe(13);
+    // Aunt May is not a hero, so there is nowhere to navigate to.
+    expect(allies["Aunt May"]).toBeNull();
+  });
+
   it("returns a null power score for heroes with no stat block", async () => {
     // Only the first eight heroes have detail records; the rest must still
     // resolve rather than 404, and must not claim a power score of zero.

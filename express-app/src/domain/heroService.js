@@ -31,7 +31,31 @@ export async function getHero(id) {
   const store = await heroStore();
   const hero = await store.findHeroById(id);
   if (!hero) throw notFound("Hero not found", { code: "HERO_NOT_FOUND" });
-  return { ...hero, powerScore: powerScore(hero) };
+
+  // Allies and enemies are stored as plain names, because that is what they
+  // are — some of them are supporting characters like Alfred who are not in the
+  // roster at all. Resolving a name to an id is a rule, not storage, so it
+  // happens here.
+  //
+  // The client used to do this with a hardcoded 25-entry lookup table, and that
+  // table was wrong: five names pointed at the hero whose page they appeared on
+  // rather than at themselves, so clicking "Thor" on Iron Man's page navigated
+  // back to Iron Man. Deriving it from the roster makes that class of mistake
+  // impossible.
+  const roster = await store.allHeroes();
+  const idByName = new Map(roster.map((entry) => [entry.name, entry.id]));
+
+  // id is null for anyone who is not a hero in their own right. The client uses
+  // that to decide what is a link and what is just a name.
+  const resolve = (names) =>
+    (names ?? []).map((name) => ({ name, id: idByName.get(name) ?? null }));
+
+  return {
+    ...hero,
+    allies: resolve(hero.allies),
+    enemies: resolve(hero.enemies),
+    powerScore: powerScore(hero),
+  };
 }
 
 export async function searchHeroes(query) {
