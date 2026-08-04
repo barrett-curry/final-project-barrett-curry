@@ -59,3 +59,18 @@ export async function fetchHeroes(): Promise<HeroSummary[]> {
 }
 
 export const fetchHero = (id: number) => fetchJson<HeroDetail>(`/heroes/${id}`);
+
+/** One archive briefing, in the shape the archive panel renders. */
+export interface ArchiveEntry {
+  index: number;
+  hero: string;
+  note: string;
+  city: string;
+  era: string;
+  team: string;
+}
+
+export async function fetchArchive(): Promise<ArchiveEntry[]> {
+  const body = await fetchJson<{ count: number; entries: ArchiveEntry[] }>("/archive");
+  return body.entries;
+}

@@ -28,3 +28,13 @@ jest.mock("./src/hooks/useHeroes", () => ({
     reload: jest.fn(),
   }),
 }));
+
+// Same reasoning as the useHeroes mock above: the archive panel's tests are
+// about search, filter, and sort over a known set of rows, not about whether
+// fetch works. The fixture is the exact payload GET /archive returns.
+jest.mock("./src/hooks/useArchive", () => ({
+  useArchive: () => ({
+    entries: require("./__tests__/fixtures/archive.json"),
+    status: "ready",
+  }),
+}));
