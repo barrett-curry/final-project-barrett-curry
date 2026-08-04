@@ -100,14 +100,21 @@ function createMemoryStore() {
       const byId = new Map(seedHeroes.map((hero) => [hero.id, hero]));
       const needle = search?.toLowerCase();
 
+      // `search` covers this table's own text columns only — note and location.
+      // It deliberately does NOT look at the hero's name, because the Supabase
+      // store cannot do that in one query and the two implementations have to
+      // mean the same thing. Matching a hero by name is the service's job; it
+      // resolves names to ids and passes them as `heroIds`.
+      //
+      // This divergence was a live bug: the in-memory store searched hero names
+      // and the Supabase store did not, so the test suite was green against
+      // semantics production never used.
       const matches = archiveEntries.filter((entry) => {
         if (heroIds && !heroIds.includes(entry.hero_id)) return false;
         if (!needle) return true;
-        const hero = byId.get(entry.hero_id);
         return (
           entry.note.toLowerCase().includes(needle) ||
-          entry.location.toLowerCase().includes(needle) ||
-          hero.name.toLowerCase().includes(needle)
+          entry.location.toLowerCase().includes(needle)
         );
       });
 

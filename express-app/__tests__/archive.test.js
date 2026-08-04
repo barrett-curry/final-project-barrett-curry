@@ -87,6 +87,41 @@ describe("Archive API", () => {
     expect(response.body.total).toBe(0);
   });
 
+  it("keeps text matches when a team filter is also applied", async () => {
+    // Regression. `search` and `team` compose as an OR nested inside an AND:
+    // rows on this team where the term appears in the note, the city, OR the
+    // hero's name. Collapsing that into one filter meant resolving the search
+    // against hero names only, so a row whose city matched was dropped because
+    // its hero's name did not. Gotham is Batman's city; Batman is Justice
+    // League; this returned 0 instead of 78.
+    const response = await request(app).get("/archive?search=Gotham&team=Justice League");
+
+    expect(response.body.total).toBe(78);
+    expect(response.body.entries.every((e) => e.team === "Justice League")).toBe(true);
+    expect(response.body.entries.every((e) => e.city === "Gotham City")).toBe(true);
+  });
+
+  it("keeps note matches when a team filter is also applied", async () => {
+    // "Archive note 0001" belongs to Spider-Man, an Avenger. Narrowing to his
+    // own team must not hide his row.
+    const kept = await request(app).get("/archive?search=note 0001&team=Avengers");
+    expect(kept.body.total).toBe(1);
+
+    // ...and narrowing to the other team must hide it.
+    const excluded = await request(app).get("/archive?search=note 0001&team=Justice League");
+    expect(excluded.body.total).toBe(0);
+  });
+
+  it("returns a row that matches both halves of the union only once", async () => {
+    // Aquaman's rows match by hero name, and his city is Atlantis, so the two
+    // queries that make up the union overlap. Merging on id is what keeps the
+    // result from double-counting.
+    const response = await request(app).get("/archive?search=Aquaman");
+
+    const ids = response.body.entries.map((e) => e.index);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("reports total separately from the page it returned", async () => {
     // A client needs both to say "showing 5 of 700".
     const response = await request(app).get("/archive?team=Avengers&limit=5");
