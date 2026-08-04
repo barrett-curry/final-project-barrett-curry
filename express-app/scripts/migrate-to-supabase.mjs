@@ -17,14 +17,20 @@ import { createClient } from "@supabase/supabase-js";
 
 import { archiveEntries, heroes } from "../src/data/heroSeed.js";
 
+// Supabase renamed its keys: `service_role` became `secret`. Both names are
+// accepted so the project works whether you are on a new dashboard or an older
+// one, with the current name preferred.
 const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !key) {
   console.error(
     "Missing credentials.\n" +
-      "  Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in express-app/.env\n" +
-      "  Find both in your Supabase project under Settings -> API.",
+      "  Set these in express-app/.env (see .env.example):\n" +
+      "    SUPABASE_URL           https://<project-ref>.supabase.co\n" +
+      "    SUPABASE_SECRET_KEY    sb_secret_...  (or SUPABASE_SERVICE_ROLE_KEY)\n" +
+      "  Both are in your Supabase project under Settings -> API Keys.\n\n" +
+      `  Currently set: SUPABASE_URL=${url ? "yes" : "no"}, key=${key ? "yes" : "no"}`,
   );
   process.exit(1);
 }
