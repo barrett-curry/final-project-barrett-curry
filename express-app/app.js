@@ -11,6 +11,8 @@ import express from "express";
 
 import { errorHandler, notFoundHandler } from "./src/middleware/errorHandler.js";
 import { requestLogger } from "./src/middleware/requestLogger.js";
+import archiveRoutes from "./src/routes/archiveRoutes.js";
+import healthRoutes from "./src/routes/healthRoutes.js";
 import heroRoutes from "./src/routes/heroRoutes.js";
 import metaRoutes from "./src/routes/metaRoutes.js";
 import pokemonRoutes from "./src/routes/pokemonRoutes.js";
@@ -28,6 +30,10 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
+// Before the resource routes: a health probe should stay cheap and should not
+// be affected by anything the rest of the app does.
+app.use("/health", healthRoutes);
+
 app.use("/", metaRoutes);
 app.use("/pokemon", pokemonRoutes);
 app.use("/trainers", trainerRoutes);
@@ -36,6 +42,7 @@ app.use("/stats", statsRoutes);
 // heroes bring their own connector, service, and router rather than being
 // spliced into someone else's file.
 app.use("/heroes", heroRoutes);
+app.use("/archive", archiveRoutes);
 
 // Anything that matched no route above is a 404, answered as JSON.
 app.use(notFoundHandler);

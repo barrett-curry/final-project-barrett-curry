@@ -93,6 +93,19 @@ function createMemoryStore() {
         .slice(0, limit)
         .map(({ hero_id, ...rest }) => rest);
     },
+
+    async findArchive({ limit = 1400 } = {}) {
+      // The seed dropped the redundant hero name and team when it normalized;
+      // this puts them back by joining, which is what the database does too.
+      const byId = new Map(seedHeroes.map((hero) => [hero.id, hero]));
+      return archiveEntries.slice(0, limit).map((entry) => ({
+        ...entry,
+        heroes: {
+          name: byId.get(entry.hero_id).name,
+          team: byId.get(entry.hero_id).team,
+        },
+      }));
+    },
   };
 }
 
@@ -207,6 +220,20 @@ function createSupabaseStore(client) {
           .limit(limit),
       );
     },
+
+    async findArchive({ limit = 1400 } = {}) {
+      // `heroes(name, team)` is the join. The schema dropped `team` from the
+      // archive because it was duplicated on all 1,400 rows; this recovers it
+      // through the foreign key, which is the whole reason to normalize —
+      // stored once, joined on demand.
+      return unwrap(
+        await client
+          .from("archive_entries")
+          .select("id, note, location, year, heroes(name, team)")
+          .order("id")
+          .limit(limit),
+      );
+    },
   };
 }
 
@@ -228,8 +255,10 @@ let store;
 export async function heroStore() {
   if (store) return store;
 
+  // Supabase renamed `anon` to `publishable`. Accepting both means the project
+  // works against a new dashboard or an old one without a code change.
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
 
   if (!url || !key) {
     // Not an error. Running without credentials is the normal case for tests
