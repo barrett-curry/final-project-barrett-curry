@@ -1,59 +1,48 @@
-# Runs both test suites on every push and pull request.
+# Continuous integration for the whole project.
 #
-# The repo holds two independent apps, so they are two jobs rather than one.
-# That matters for reading failures: if the API breaks, the Expo job stays green
-# and the failure points at the right half of the repo instead of at "CI".
-# They also run in parallel, so two jobs is faster than one.
+# One matrix job covers both packages (the Express API and the Expo app)
+# across two Node LTS lines. Each cell is an independent, from-scratch
+# environment: `npm ci` installs exactly what package-lock.json pins, then the
+# package's own `npm test` runs its Jest suite. A red X on any cell blocks the
+# PR, which is the whole point — nothing merges unless both suites pass
+# everywhere.
 name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
-  express-app:
-    name: API tests
+  test:
+    name: ${{ matrix.app }} (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      # Let the other cells finish even if one fails, so a single flake
+      # doesn't hide results from the rest of the matrix.
+      fail-fast: false
+      matrix:
+        node-version: [20.x, 22.x]
+        app: [express-app, expo-app]
+
     defaults:
       run:
-        working-directory: express-app
+        working-directory: ${{ matrix.app }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-          # Caches ~/.npm keyed on the lockfile, so unchanged dependencies are
-          # not re-downloaded on every run.
+          node-version: ${{ matrix.node-version }}
           cache: npm
-          cache-dependency-path: express-app/package-lock.json
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
 
-      # `npm ci` rather than `npm install`: it installs exactly what the
-      # lockfile says and fails if package.json and the lockfile disagree.
-      # `install` would quietly resolve newer versions, which means CI could
-      # pass against dependencies nobody has actually run locally.
-      - run: npm ci
+      - name: Install dependencies (clean, from the lockfile)
+        run: npm ci
 
-      - run: npm test
-
-  expo-app:
-    name: Client tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: expo-app
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: expo-app/package-lock.json
-
-      - run: npm ci
-
-      - run: npm test
+      - name: Run the test suite
+        run: npm test
