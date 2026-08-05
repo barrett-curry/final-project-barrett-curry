@@ -12,6 +12,7 @@ import express from "express";
 import { errorHandler, notFoundHandler } from "./src/middleware/errorHandler.js";
 import { requestLogger } from "./src/middleware/requestLogger.js";
 import archiveRoutes from "./src/routes/archiveRoutes.js";
+import { createDocsRoutes } from "./src/routes/docsRoutes.js";
 import healthRoutes from "./src/routes/healthRoutes.js";
 import heroRoutes from "./src/routes/heroRoutes.js";
 import { createMetaRoutes } from "./src/routes/metaRoutes.js";
@@ -53,6 +54,11 @@ mounts.unshift({
   router: createMetaRoutes(mounts),
   resource: "meta",
 });
+
+// The docs page renders the same table. Mounted outside it on purpose: it is a
+// human-facing HTML page, not part of the JSON API, so it should not appear in
+// the API's own endpoint list.
+app.use("/docs", createDocsRoutes(mounts));
 
 for (const { prefix, router } of mounts) {
   app.use(prefix, router);

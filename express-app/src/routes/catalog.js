@@ -23,20 +23,27 @@ function joinPath(prefix, path) {
 
 /**
  * @param {{prefix: string, router: import("express").Router, resource: string}[]} mounts
+ * @param {Record<string, object>} [descriptions] keyed by `METHOD /full/path`
  * @returns {{method: string, path: string, resource: string}[]}
  */
-export function buildCatalog(mounts) {
+export function buildCatalog(mounts, descriptions = {}) {
   return mounts
     .flatMap(({ prefix, router, resource }) =>
       router.stack
         // Layers without a `route` are middleware, not endpoints.
         .filter((layer) => layer.route)
         .flatMap((layer) =>
-          Object.keys(layer.route.methods).map((method) => ({
-            method: method.toUpperCase(),
-            path: joinPath(prefix, layer.route.path),
-            resource,
-          })),
+          Object.keys(layer.route.methods).map((method) => {
+            const path = joinPath(prefix, layer.route.path);
+            return {
+              method: method.toUpperCase(),
+              path,
+              resource,
+              // Spread rather than nested, so an undocumented route simply has
+              // no summary instead of an empty object pretending to be one.
+              ...(descriptions[`${method.toUpperCase()} ${path}`] ?? {}),
+            };
+          }),
         ),
     )
     .sort((left, right) => left.path.localeCompare(right.path));
