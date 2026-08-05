@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
+import { colors, font, radius, space, teamColor } from "../src/theme";
 import { useHero } from "../src/hooks/useHero";
 
 
@@ -35,9 +36,11 @@ export default function Detail() {
   }
 
   const getStatColor = (value: number) => {
-    if (value >= 8) return "#e74c3c"; // Red for high stats
-    if (value >= 6) return "#f39c12"; // Orange for medium stats
-    return "#3498db"; // Blue for lower stats
+    // Three bands rather than a gradient: a reader can tell three colors
+    // apart at a glance, which is the whole job of coloring a bar.
+    if (value >= 8) return colors.avengers;
+    if (value >= 6) return colors.accent;
+    return colors.justiceLeague;
   };
 
   // The API is the source of truth for the score; it returns null for heroes
@@ -61,8 +64,13 @@ export default function Detail() {
       <View style={styles.header}>
         <Text style={styles.heroName}>{hero.name}</Text>
         <Text style={styles.realName}>{hero.realName}</Text>
-        <View style={styles.teamBadge}>
-          <Text style={styles.teamText}>{hero.team}</Text>
+        <View
+          style={[
+            styles.teamBadge,
+            { borderColor: teamColor(hero.team), backgroundColor: teamColor(hero.team) + "22" },
+          ]}
+        >
+          <Text style={[styles.teamText, { color: teamColor(hero.team) }]}>{hero.team}</Text>
         </View>
       </View>
 
@@ -195,185 +203,118 @@ export default function Detail() {
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, padding: space.lg },
   loading: { marginTop: 48 },
-  container: {
-    flex: 1,
-    backgroundColor: "#f0f2f5",
-    paddingTop: 60,
-  },
-  backButton: {
-    marginLeft: 20,
-    marginBottom: 20,
-    alignSelf: "flex-start",
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: "#3498db",
-    fontWeight: "600",
-  },
-  errorText: {
-    fontSize: 18,
-    textAlign: "center",
-    color: "#e74c3c",
-    marginTop: 100,
-  },
-  header: {
-    backgroundColor: "white",
-    padding: 20,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+
+  backButton: { paddingVertical: space.sm, marginBottom: space.sm },
+  backButtonText: { color: colors.accent, fontSize: font.body, fontWeight: "600" },
+
+  header: { marginBottom: space.xl },
   heroName: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#2c3e50",
-    textAlign: "center",
+    fontSize: font.display,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.5,
   },
-  realName: {
-    fontSize: 18,
-    color: "#7f8c8d",
-    fontStyle: "italic",
-    marginTop: 5,
-    marginBottom: 15,
-  },
+  realName: { fontSize: font.body, color: colors.muted, marginTop: 2 },
   teamBadge: {
-    backgroundColor: "#3498db",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    alignSelf: "flex-start",
+    marginTop: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
   },
   teamText: {
-    color: "white",
-    fontWeight: "600",
-    fontSize: 14,
+    fontSize: font.micro,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
+
   section: {
-    backgroundColor: "white",
-    marginHorizontal: 20,
-    marginBottom: 15,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    marginBottom: space.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#2c3e50",
-    marginBottom: 12,
+    fontSize: font.micro,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.accent,
+    marginBottom: space.sm,
   },
-  sectionText: {
-    fontSize: 16,
-    color: "#34495e",
-    lineHeight: 24,
-  },
-  powerItem: {
-    fontSize: 16,
-    color: "#34495e",
-    marginBottom: 6,
-    marginLeft: 10,
-  },
-  statsContainer: {
-    gap: 12,
-  },
-  statRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  statLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2c3e50",
-    width: 80,
-    textTransform: "capitalize",
-  },
+  sectionText: { color: colors.text, fontSize: font.body, lineHeight: 22 },
+
+  powerItem: { color: colors.text, fontSize: font.body, lineHeight: 24 },
+
+  // --- Stat bars ----------------------------------------------------------
+  statsContainer: { gap: space.sm },
+  statRow: { flexDirection: "row", alignItems: "center", gap: space.md },
+  // Fixed width so every bar starts at the same x. Ragged starts make a set of
+  // bars impossible to compare, which is the only thing bars are for.
+  statLabel: { width: 92, color: colors.muted, fontSize: font.small },
   statBarContainer: {
     flex: 1,
     height: 8,
-    backgroundColor: "#ecf0f1",
-    borderRadius: 4,
+    backgroundColor: colors.line,
+    borderRadius: radius.pill,
     overflow: "hidden",
   },
-  statBar: {
-    height: "100%",
-    borderRadius: 4,
-  },
+  statBar: { height: "100%", borderRadius: radius.pill },
   statValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#7f8c8d",
-    width: 35,
+    width: 46,
     textAlign: "right",
+    color: colors.text,
+    fontSize: font.small,
+    fontVariant: ["tabular-nums"],
   },
-  listContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
+
+  // --- Allies and enemies -------------------------------------------------
+  listContainer: { gap: space.xs },
   listItem: {
-    backgroundColor: "#ecf0f1",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  enemyItem: {
-    backgroundColor: "#fadbd8",
-  },
-  listText: {
-    fontSize: 14,
-    color: "#2c3e50",
-    fontWeight: "500",
-  },
-  enemyText: {
-    color: "#c0392b",
-  },
-  clickableAlly: {
-    backgroundColor: "#e8f4fd",
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.raised,
     borderWidth: 1,
-    borderColor: "#3498db",
+    borderColor: "transparent",
   },
-  clickableAllyText: {
-    color: "#3498db",
-    fontWeight: "600",
+  listText: { color: colors.text, fontSize: font.body },
+  // Only characters who are heroes in their own right are navigable, so they
+  // are the only ones that look navigable.
+  clickableAlly: { borderColor: colors.lineStrong },
+  clickableAllyText: { color: colors.accent, fontWeight: "600" },
+  enemyItem: {
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.raised,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.danger,
   },
-  infoRow: {
-    fontSize: 16,
-    color: "#34495e",
-    marginBottom: 8,
-    lineHeight: 22,
-  },
-  infoLabel: {
-    fontWeight: "600",
-    color: "#2c3e50",
-  },
+  enemyText: { color: colors.text, fontSize: font.body },
+
+  infoRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: space.xs },
+  infoLabel: { color: colors.faint, fontWeight: "700" },
+
   quoteSection: {
-    backgroundColor: "#3498db",
-    marginHorizontal: 20,
-    marginBottom: 30,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+    paddingLeft: space.lg,
+    paddingVertical: space.sm,
+    marginBottom: space.xxl,
   },
-  quote: {
-    fontSize: 18,
-    color: "white",
-    fontStyle: "italic",
+  quote: { color: colors.text, fontSize: font.large, fontStyle: "italic", lineHeight: 26 },
+
+  errorText: {
+    color: colors.muted,
+    fontSize: font.large,
     textAlign: "center",
-    lineHeight: 26,
+    marginTop: 64,
   },
 });

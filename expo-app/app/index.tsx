@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 
 import type { HeroSummary } from "../src/api/heroes";
+import { colors, font, radius, space, teamColor } from "../src/theme";
 import { useArchive } from "../src/hooks/useArchive";
 import { useHeroes } from "../src/hooks/useHeroes";
 
@@ -140,14 +141,23 @@ function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
   };
 
   return (
-    <View style={styles.container}>
+    // One scroll container for the whole screen. It was a fixed-height View
+    // with a ScrollView inside it, so the page could not scroll and the inner
+    // list only got whatever vertical space the panels above it left over -
+    // which, once the featured, team, and archive panels were stacked, was
+    // nothing. Everything scrolls together now.
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.containerContent}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>🦸‍♂️ Superhero Directory 🦸‍♀️</Text>
 
       <TextInput
         testID="hero-search-input"
         style={styles.searchInput}
         placeholder="Search by hero or real name"
-        placeholderTextColor="#7f8c8d"
+        placeholderTextColor={colors.faint}
         value={searchQuery}
         onChangeText={setSearchQuery}
       />
@@ -310,10 +320,7 @@ function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
         Favorites: {favoriteHeroIds.length}
       </Text>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.scrollView}>
         {displayedHeroes.length === 0 ? (
           <Text style={styles.emptyState}>
             No heroes match the current search and team filters.
@@ -342,7 +349,14 @@ function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
               </Pressable>
               <View style={styles.heroHeader}>
                 <Text style={styles.heroName}>{hero.name}</Text>
-                <Text style={styles.teamBadge}>{hero.team}</Text>
+                <Text
+                  style={[
+                    styles.teamBadge,
+                    { color: teamColor(hero.team), backgroundColor: teamColor(hero.team) + "22" },
+                  ]}
+                >
+                  {hero.team}
+                </Text>
               </View>
               <Text style={styles.realName}>Real Name: {hero.realName}</Text>
               <Text style={styles.powersLabel}>Powers:</Text>
@@ -355,355 +369,281 @@ function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
             </Pressable>
           ))
         )}
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  // --- Async states -------------------------------------------------------
   stateContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    gap: 12,
+    padding: space.xl,
+    gap: space.md,
+    backgroundColor: colors.background,
   },
-  stateTitle: { fontSize: 18, fontWeight: "700" },
-  stateText: { fontSize: 14, opacity: 0.7, textAlign: "center" },
+  stateTitle: { fontSize: font.large, fontWeight: "700", color: colors.text },
+  stateText: { fontSize: font.body, color: colors.muted, textAlign: "center" },
   stateButton: {
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "#2563eb",
+    marginTop: space.sm,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent,
   },
-  stateButtonText: { color: "#fff", fontWeight: "600" },
-  container: {
-    flex: 1,
-    backgroundColor: "#f0f2f5",
-    paddingTop: 60,
-    paddingHorizontal: 20,
+  stateButtonText: { color: colors.onAccent, fontWeight: "700" },
+
+  // --- Shell --------------------------------------------------------------
+  container: { flex: 1, backgroundColor: colors.background },
+  containerContent: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.xl,
+    // Room to scroll past the last card rather than ending flush against it.
+    paddingBottom: space.xxl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#2c3e50",
+    fontSize: font.display,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.5,
+    marginBottom: space.lg,
   },
+
   searchInput: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: "#2c3e50",
-    marginBottom: 12,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#dfe6e9",
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+    color: colors.text,
+    fontSize: font.body,
+    marginBottom: space.md,
   },
+
+  // --- Filter and sort pills ----------------------------------------------
   filterRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
+    gap: space.sm,
+    marginBottom: space.md,
   },
   filterButton: {
-    backgroundColor: "#dfe6e9",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
   },
+  // Selection is shown with a filled background rather than only a color
+  // change, so it survives being looked at quickly.
   filterButtonActive: {
-    backgroundColor: "#2c3e50",
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
-  filterButtonText: {
-    color: "#2c3e50",
-    fontWeight: "700",
-  },
-  filterButtonTextActive: {
-    color: "white",
-  },
+  filterButtonText: { color: colors.muted, fontSize: font.small, fontWeight: "600" },
+  filterButtonTextActive: { color: colors.onAccent },
+
+  // --- Featured hero ------------------------------------------------------
   featuredPanel: {
-    backgroundColor: "#1f2933",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.raised,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    marginBottom: space.md,
   },
   featuredLabel: {
-    color: "#9fb3c8",
-    fontSize: 12,
+    fontSize: font.micro,
     fontWeight: "700",
+    letterSpacing: 1.2,
     textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 6,
+    color: colors.accent,
   },
   featuredName: {
-    color: "white",
-    fontSize: 22,
+    fontSize: font.title,
     fontWeight: "800",
-    marginBottom: 4,
+    color: colors.text,
+    marginTop: space.xs,
   },
-  featuredMeta: {
-    color: "#d9e2ec",
-    marginBottom: 12,
-  },
-  featuredButtonRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
+  featuredMeta: { fontSize: font.small, color: colors.muted, marginTop: 2 },
+  featuredButtonRow: { flexDirection: "row", gap: space.sm, marginTop: space.md },
   featuredButton: {
-    backgroundColor: "#334e68",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
   },
-  featuredButtonActive: {
-    backgroundColor: "#f0b429",
-  },
-  featuredButtonText: {
-    color: "#d9e2ec",
-    fontWeight: "700",
-  },
-  featuredButtonTextActive: {
-    color: "#1f2933",
-  },
+  featuredButtonActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  featuredButtonText: { color: colors.muted, fontSize: font.small, fontWeight: "600" },
+  featuredButtonTextActive: { color: colors.onAccent },
+
+  // --- Team breakdown -----------------------------------------------------
   teamPanel: {
-    backgroundColor: "#fff7e6",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: space.md,
+    marginBottom: space.md,
   },
   teamPanelTitle: {
-    color: "#7c4700",
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  teamPanelItem: {
-    color: "#7c4700",
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  favoriteButton: {
-    alignSelf: "flex-end",
-    marginBottom: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  favoriteButtonText: {
-    fontSize: 18,
-    color: "#e74c3c",
+    fontSize: font.micro,
     fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.faint,
+    marginBottom: space.sm,
   },
-  scrollView: {
-    flex: 1,
-  },
+  teamPanelItem: { color: colors.text, fontSize: font.body, paddingVertical: 2 },
+
+  // --- Hero cards ---------------------------------------------------------
+  scrollView: { marginTop: space.md },
   heroCard: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    marginBottom: space.md,
   },
   heroHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    gap: space.sm,
+    paddingRight: space.xl,
   },
-  heroName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#2c3e50",
-    flex: 1,
-  },
+  heroName: { fontSize: font.large, fontWeight: "800", color: colors.text, flexShrink: 1 },
+  // Tinted per team at the call site — the roster is only scannable if the two
+  // teams look different.
   teamBadge: {
-    backgroundColor: "#3498db",
-    color: "white",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: font.micro,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    paddingHorizontal: space.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    overflow: "hidden",
   },
-  realName: {
-    fontSize: 16,
-    color: "#7f8c8d",
-    marginBottom: 12,
-    fontStyle: "italic",
-  },
+  realName: { color: colors.muted, fontSize: font.small, marginTop: space.xs },
   powersLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2c3e50",
-    marginBottom: 8,
+    fontSize: font.micro,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: colors.faint,
+    marginTop: space.md,
+    marginBottom: space.xs,
   },
-  powerItem: {
-    fontSize: 14,
-    color: "#34495e",
-    marginLeft: 8,
-    marginBottom: 4,
-  },
-  tapHint: {
-    fontSize: 12,
-    color: "#3498db",
-    fontStyle: "italic",
-    textAlign: "right",
-    marginTop: 8,
-  },
-  controlsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
+  powerItem: { color: colors.text, fontSize: font.small, lineHeight: 20 },
+  tapHint: { color: colors.accent, fontSize: font.small, fontWeight: "600", marginTop: space.md },
+
+  favoriteButton: {
+    position: "absolute",
+    top: space.md,
+    right: space.md,
+    // 44pt target without changing the layout around it.
+    width: 40,
+    height: 40,
     alignItems: "center",
-    gap: 15,
-    marginBottom: 15,
-    paddingHorizontal: 20,
+    justifyContent: "center",
+    zIndex: 1,
   },
+  favoriteButtonText: { fontSize: 22, color: colors.avengers },
+
+  // --- Snap controls ------------------------------------------------------
+  controlsContainer: { flexDirection: "row", gap: space.sm, marginBottom: space.md },
   snapButton: {
-    backgroundColor: "#8e44ad",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    flex: 1,
+    backgroundColor: colors.avengers,
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    alignItems: "center",
   },
-  snapButtonDisabled: {
-    backgroundColor: "#95a5a6",
-    opacity: 0.6,
-  },
-  snapButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
+  snapButtonDisabled: { backgroundColor: colors.line },
+  snapButtonText: { color: colors.text, fontWeight: "700", fontSize: font.body },
   undoButton: {
-    backgroundColor: "#27ae60",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  undoButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  heroCount: {
-    fontSize: 14,
-    color: "#7f8c8d",
-    textAlign: "center",
-    marginBottom: 15,
-    fontStyle: "italic",
-  },
-  leadHeroLabel: {
-    textAlign: "center",
-    color: "#2c3e50",
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  favoriteCount: {
-    textAlign: "center",
-    color: "#e74c3c",
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  emptyState: {
-    fontSize: 16,
-    color: "#7f8c8d",
-    textAlign: "center",
-    marginTop: 24,
-    lineHeight: 24,
-  },
-  archivePanel: {
-    backgroundColor: "#f7f7fb",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    flex: 1,
     borderWidth: 1,
-    borderColor: "#d9dee7",
+    borderColor: colors.lineStrong,
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    alignItems: "center",
+  },
+  undoButtonText: { color: colors.text, fontWeight: "700", fontSize: font.body },
+
+  // --- Counters -----------------------------------------------------------
+  heroCount: { color: colors.muted, fontSize: font.small },
+  leadHeroLabel: { color: colors.faint, fontSize: font.small, marginTop: 2 },
+  favoriteCount: { color: colors.faint, fontSize: font.small, marginTop: 2 },
+  emptyState: {
+    color: colors.muted,
+    fontSize: font.body,
+    textAlign: "center",
+    paddingVertical: space.xxl,
+  },
+
+  // --- Archive ------------------------------------------------------------
+  archivePanel: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    marginBottom: space.md,
   },
   archiveHeader: {
     flexDirection: "row",
+    alignItems: "baseline",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 12,
+    marginBottom: space.md,
   },
-  archiveTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#2c3e50",
-  },
-  archiveCount: {
-    fontSize: 12,
-    color: "#7f8c8d",
-    fontWeight: "700",
-  },
+  archiveTitle: { fontSize: font.large, fontWeight: "800", color: colors.text },
+  archiveCount: { fontSize: font.small, color: colors.muted },
   archiveControls: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
+    gap: space.sm,
+    marginBottom: space.md,
   },
   archiveInput: {
-    backgroundColor: "white",
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: "#d9dee7",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: "#2c3e50",
-    marginBottom: 12,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    color: colors.text,
+    fontSize: font.small,
+    marginBottom: space.sm,
   },
-  archiveGrid: {
-    gap: 10,
-  },
+  archiveGrid: { gap: space.sm },
   archiveCard: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: colors.raised,
+    borderRadius: radius.sm,
+    padding: space.md,
     borderWidth: 1,
-    borderColor: "#e1e7ef",
+    borderColor: colors.line,
   },
   archiveCardHighlighted: {
-    borderColor: "#8e44ad",
-    backgroundColor: "#f8f1fc",
+    borderColor: colors.accent,
+    backgroundColor: colors.accentDim + "33",
   },
-  archiveCardName: {
-    fontWeight: "800",
-    color: "#2c3e50",
-    marginBottom: 4,
-  },
-  archiveCardMeta: {
-    color: "#7f8c8d",
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  archiveCardNote: {
-    color: "#34495e",
-    fontSize: 13,
-  },
+  archiveCardName: { fontWeight: "700", color: colors.text, marginBottom: 2 },
+  archiveCardMeta: { color: colors.faint, fontSize: font.micro, marginBottom: space.xs },
+  archiveCardNote: { color: colors.muted, fontSize: font.small },
   archiveEmpty: {
-    color: "#7f8c8d",
+    color: colors.muted,
+    fontSize: font.small,
     textAlign: "center",
-    paddingVertical: 12,
+    paddingVertical: space.xl,
   },
 });
 
@@ -767,7 +707,7 @@ function HeroArchivePanel() {
         testID="archive-search-input"
         style={styles.archiveInput}
         placeholder="Search archive by hero, note, or city"
-        placeholderTextColor="#7f8c8d"
+        placeholderTextColor={colors.faint}
         value={query}
         onChangeText={setQuery}
       />

@@ -6,8 +6,12 @@ import Index from "../app/index";
 import React from "react";
 
 describe("Expo superhero app", () => {
-  const mockedRouter = router as { back: jest.Mock; push: jest.Mock };
-  const mockedUseLocalSearchParams = useLocalSearchParams as jest.Mock;
+  // Double cast through `unknown` because expo-router's real Router type and a
+  // pair of jest mocks genuinely do not overlap — the mock is supplied by
+  // jest.setup.js at runtime, which the type system has no way to know. Casting
+  // straight across compiled only because @types/jest was missing.
+  const mockedRouter = router as unknown as { back: jest.Mock; push: jest.Mock };
+  const mockedUseLocalSearchParams = useLocalSearchParams as unknown as jest.Mock;
 
   beforeEach(() => {
     mockedRouter.back.mockClear();
