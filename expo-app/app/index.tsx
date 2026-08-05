@@ -6,13 +6,16 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { router } from "expo-router";
 import { useState } from "react";
 
 import type { HeroSummary } from "../src/api/heroes";
-import { colors, font, radius, space, teamColor } from "../src/theme";
+import { Button, Pill, Screen, Section } from "../src/components";
+import { HeroCard } from "../src/components/HeroCard";
+import { colors, font, layout, radius, space } from "../src/theme";
 import { useArchive } from "../src/hooks/useArchive";
 import { useHeroes } from "../src/hooks/useHeroes";
 
@@ -65,6 +68,10 @@ function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
     "topPower",
   );
   const [featuredHeroIndex, setFeaturedHeroIndex] = useState(0);
+
+  // 18 full-width cards is a 4,000pt column on a desktop browser.
+  const { width } = useWindowDimensions();
+  const columns = width >= layout.breakpoint.lg ? 3 : width >= layout.breakpoint.md ? 2 : 1;
 
   const teamTotals = superheroes.reduce(
     (accumulator, hero) => {
@@ -141,16 +148,7 @@ function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
   };
 
   return (
-    // One scroll container for the whole screen. It was a fixed-height View
-    // with a ScrollView inside it, so the page could not scroll and the inner
-    // list only got whatever vertical space the panels above it left over -
-    // which, once the featured, team, and archive panels were stacked, was
-    // nothing. Everything scrolls together now.
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.containerContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <Screen>
       <Text style={styles.title}>🦸‍♂️ Superhero Directory 🦸‍♀️</Text>
 
       <TextInput
@@ -162,215 +160,145 @@ function HeroDirectory({ superheroes }: { superheroes: HeroSummary[] }) {
         onChangeText={setSearchQuery}
       />
 
-      <View style={styles.filterRow}>
+      {/* Filters and sort were two wrapping rows of pills with ragged right
+          edges at four different x-positions. One horizontally scrolling rail
+          keeps every control mounted (which the tests require) on one line. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.rail}
+      >
         {(["All", "Avengers", "Justice League"] as const).map((team) => (
-          <Pressable
+          <Pill
             key={team}
             testID={`team-filter-${team}`}
-            style={[
-              styles.filterButton,
-              teamFilter === team && styles.filterButtonActive,
-            ]}
+            label={team}
+            selected={teamFilter === team}
             onPress={() => setTeamFilter(team)}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                teamFilter === team && styles.filterButtonTextActive,
-              ]}
-            >
-              {team}
-            </Text>
-          </Pressable>
+          />
         ))}
-      </View>
-
-      <View style={styles.filterRow}>
+        <Pill
+          testID="favorites-only-toggle"
+          label="Favorites"
+          selected={favoritesOnly}
+          onPress={() => setFavoritesOnly((current) => !current)}
+        />
+        <View style={styles.railDivider} />
         {(["default", "name", "team"] as const).map((mode) => (
-          <Pressable
+          <Pill
             key={mode}
             testID={`sort-mode-${mode}`}
-            style={[
-              styles.filterButton,
-              sortMode === mode && styles.filterButtonActive,
-            ]}
+            label={mode === "default" ? "Default Order" : `Sort ${mode}`}
+            selected={sortMode === mode}
             onPress={() => setSortMode(mode)}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                sortMode === mode && styles.filterButtonTextActive,
-              ]}
-            >
-              {mode === "default" ? "Default Order" : `Sort ${mode}`}
-            </Text>
-          </Pressable>
+          />
         ))}
-        <Pressable
-          testID="favorites-only-toggle"
-          style={[
-            styles.filterButton,
-            favoritesOnly && styles.filterButtonActive,
-          ]}
-          onPress={() => setFavoritesOnly((current) => !current)}
-        >
-          <Text
-            style={[
-              styles.filterButtonText,
-              favoritesOnly && styles.filterButtonTextActive,
-            ]}
-          >
-            Favorites Only
-          </Text>
-        </Pressable>
+      </ScrollView>
+
+      {/* The three counters were three stacked lines of grey at 2px leading,
+          which read like console output someone forgot to delete. They are one
+          wrapped strip now. They stay siblings rather than nested inside a
+          parent Text — a wrapping Text's concatenated content would also match
+          the tests' regex and getByText would find two elements. */}
+      <View style={styles.meta}>
+        <Text style={styles.metaText}>
+          {displayedHeroes.length} of {visibleHeroes.length} heroes shown
+          {isSnapped
+            ? ` • ${snappedHeroes.length} dusted`
+            : " • all heroes available"}
+        </Text>
+        <Text testID="lead-hero-label" style={styles.metaFaint}>
+          First hero in list: {leadHeroName}
+        </Text>
+        <Text testID="favorites-count" style={styles.metaFaint}>
+          Favorites: {favoriteHeroIds.length}
+        </Text>
       </View>
 
-      <View style={styles.featuredPanel}>
-        <Text style={styles.featuredLabel}>Featured Hero</Text>
-        <Text testID="featured-hero-name" style={styles.featuredName}>
-          {featuredHero.name}
+      {/* The roster, first — it was previously below two screens of chrome. */}
+      {displayedHeroes.length === 0 ? (
+        <Text style={styles.emptyState}>
+          No heroes match the current search and team filters.
         </Text>
-        <Text style={styles.featuredMeta}>
-          {featuredHero.team} • {featuredHero.powers.length} powers
-        </Text>
-        <View style={styles.featuredButtonRow}>
-          <Pressable
-            testID="featured-mode-power"
-            style={[
-              styles.featuredButton,
-              featuredMode === "topPower" && styles.featuredButtonActive,
-            ]}
-            onPress={() => setFeaturedMode("topPower")}
-          >
-            <Text
+      ) : (
+        <View style={styles.grid}>
+          {displayedHeroes.map((hero) => (
+            <View
+              key={hero.id}
               style={[
-                styles.featuredButtonText,
-                featuredMode === "topPower" && styles.featuredButtonTextActive,
+                styles.cell,
+                { flexBasis: `${100 / columns}%`, maxWidth: `${100 / columns}%` },
               ]}
             >
-              Top Power
-            </Text>
-          </Pressable>
-          <Pressable
-            testID="featured-mode-random"
-            style={[
-              styles.featuredButton,
-              featuredMode === "random" && styles.featuredButtonActive,
-            ]}
-            onPress={() => {
-              setFeaturedMode("random");
-              setFeaturedHeroIndex(
-                Math.floor(Math.random() * superheroes.length),
-              );
-            }}
-          >
-            <Text
-              style={[
-                styles.featuredButtonText,
-                featuredMode === "random" && styles.featuredButtonTextActive,
-              ]}
-            >
-              Stable Random
-            </Text>
-          </Pressable>
+              <HeroCard
+                hero={hero}
+                isFavorite={favoriteHeroIds.includes(hero.id)}
+                testID={`hero-card-${hero.id}`}
+                favoriteTestID={`favorite-button-${hero.id}`}
+                onPress={() =>
+                  router.push({ pathname: "/detail" as any, params: { id: hero.id } })
+                }
+                onToggleFavorite={() => toggleFavorite(hero.id)}
+              />
+            </View>
+          ))}
         </View>
+      )}
+
+      {/* Snap is an easter egg that deletes half the content. It had the
+          largest, reddest, full-width treatment on the screen — more weight
+          than search. It sits with the counters it changes now. */}
+      <View style={styles.snapRow}>
+        <Button
+          label={isSnapped ? "💀 Snapped!" : "🫰 Thanos Snap"}
+          onPress={handleThanosSnap}
+          disabled={isSnapped}
+          variant={isSnapped ? "ghost" : "danger"}
+        />
+        {isSnapped && <Button label="⏪ Undo Snap" onPress={handleUndo} />}
       </View>
 
-      <View style={styles.teamPanel}>
-        <Text style={styles.teamPanelTitle}>Team Breakdown</Text>
-        {Object.entries(teamTotals).map(([team, count]) => (
-          <Text key={team} style={styles.teamPanelItem}>
-            {team}: {count}
+      {/* Below the roster: two panels that were competing with it for the top
+          of the page. Featured is decoration on a screen with 18 items and a
+          search box, not navigation. */}
+      <View style={styles.footerBand}>
+        <Section title="Featured Hero" style={styles.footerColumn}>
+          <Text testID="featured-hero-name" style={styles.featuredName}>
+            {featuredHero.name}
           </Text>
-        ))}
+          <Text style={styles.metaText}>
+            {featuredHero.team} • {featuredHero.powers.length} powers
+          </Text>
+          <View style={styles.footerControls}>
+            <Pill
+              testID="featured-mode-power"
+              label="Top Power"
+              selected={featuredMode === "topPower"}
+              onPress={() => setFeaturedMode("topPower")}
+            />
+            <Pill
+              testID="featured-mode-random"
+              label="Stable Random"
+              selected={featuredMode === "random"}
+              onPress={() => {
+                setFeaturedMode("random");
+                setFeaturedHeroIndex(Math.floor(Math.random() * superheroes.length));
+              }}
+            />
+          </View>
+        </Section>
+
+        <Section title="Team Breakdown" style={styles.footerColumn}>
+          {Object.entries(teamTotals).map(([team, count]) => (
+            <Text key={team} style={styles.teamPanelItem}>
+              {team}: {count}
+            </Text>
+          ))}
+        </Section>
       </View>
 
       <HeroArchivePanel />
-
-      <View style={styles.controlsContainer}>
-        <Pressable
-          style={[styles.snapButton, isSnapped && styles.snapButtonDisabled]}
-          onPress={handleThanosSnap}
-          disabled={isSnapped}
-        >
-          <Text style={styles.snapButtonText}>
-            {isSnapped ? "💀 Snapped!" : "🫰 Thanos Snap"}
-          </Text>
-        </Pressable>
-
-        {isSnapped && (
-          <Pressable style={styles.undoButton} onPress={handleUndo}>
-            <Text style={styles.undoButtonText}>⏪ Undo Snap</Text>
-          </Pressable>
-        )}
-      </View>
-
-      <Text style={styles.heroCount}>
-        {displayedHeroes.length} of {visibleHeroes.length} heroes shown
-        {isSnapped
-          ? ` • ${snappedHeroes.length} dusted`
-          : " • all heroes available"}
-      </Text>
-
-      <Text testID="lead-hero-label" style={styles.leadHeroLabel}>
-        First hero in list: {leadHeroName}
-      </Text>
-
-      <Text testID="favorites-count" style={styles.favoriteCount}>
-        Favorites: {favoriteHeroIds.length}
-      </Text>
-
-      <View style={styles.scrollView}>
-        {displayedHeroes.length === 0 ? (
-          <Text style={styles.emptyState}>
-            No heroes match the current search and team filters.
-          </Text>
-        ) : (
-          displayedHeroes.map((hero) => (
-            <Pressable
-              key={hero.id}
-              testID={`hero-card-${hero.id}`}
-              style={styles.heroCard}
-              onPress={() =>
-                router.push({
-                  pathname: "/detail" as any,
-                  params: { id: hero.id },
-                })
-              }
-            >
-              <Pressable
-                testID={`favorite-button-${hero.id}`}
-                style={styles.favoriteButton}
-                onPress={() => toggleFavorite(hero.id)}
-              >
-                <Text style={styles.favoriteButtonText}>
-                  {favoriteHeroIds.includes(hero.id) ? "♥" : "♡"}
-                </Text>
-              </Pressable>
-              <View style={styles.heroHeader}>
-                <Text style={styles.heroName}>{hero.name}</Text>
-                <Text
-                  style={[
-                    styles.teamBadge,
-                    { color: teamColor(hero.team), backgroundColor: teamColor(hero.team) + "22" },
-                  ]}
-                >
-                  {hero.team}
-                </Text>
-              </View>
-              <Text style={styles.realName}>Real Name: {hero.realName}</Text>
-              <Text style={styles.powersLabel}>Powers:</Text>
-              {hero.powers.map((power, index) => (
-                <Text key={index} style={styles.powerItem}>
-                  • {power}
-                </Text>
-              ))}
-              <Text style={styles.tapHint}>Tap for more details →</Text>
-            </Pressable>
-          ))
-        )}
-      </View>
-    </ScrollView>
+    </Screen>
   );
 }
 
@@ -390,255 +318,123 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
     paddingHorizontal: space.xl,
     paddingVertical: space.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.accent,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
   },
-  stateButtonText: { color: colors.onAccent, fontWeight: "700" },
+  stateButtonText: { color: colors.text, fontWeight: "700" },
 
-  // --- Shell --------------------------------------------------------------
-  container: { flex: 1, backgroundColor: colors.background },
-  containerContent: {
-    paddingHorizontal: space.lg,
-    paddingTop: space.xl,
-    // Room to scroll past the last card rather than ending flush against it.
-    paddingBottom: space.xxl,
-  },
+  // --- Header -------------------------------------------------------------
+  // Was font.display (30) — the same size as a hero's name on the detail
+  // screen, which flattened the hierarchy between parent and child routes.
   title: {
-    fontSize: font.display,
-    fontWeight: "800",
+    fontSize: font.title,
+    fontWeight: "700",
     color: colors.text,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
     marginBottom: space.lg,
   },
-
   searchInput: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.md,
     paddingHorizontal: space.md,
-    paddingVertical: space.md,
+    minHeight: 48,
     color: colors.text,
     fontSize: font.body,
     marginBottom: space.md,
   },
 
-  // --- Filter and sort pills ----------------------------------------------
-  filterRow: {
+  // --- Control rail -------------------------------------------------------
+  rail: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingRight: space.lg },
+  // Separates "which heroes" from "in what order".
+  railDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: colors.line,
+    marginHorizontal: space.xs,
+  },
+
+  // --- Metadata strip -----------------------------------------------------
+  meta: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: space.sm,
+    alignItems: "center",
+    gap: space.md,
+    marginTop: space.lg,
     marginBottom: space.md,
   },
-  filterButton: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
-  // Selection is shown with a filled background rather than only a color
-  // change, so it survives being looked at quickly.
-  filterButtonActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  filterButtonText: { color: colors.muted, fontSize: font.small, fontWeight: "600" },
-  filterButtonTextActive: { color: colors.onAccent },
+  metaText: { color: colors.muted, fontSize: font.small },
+  metaFaint: { color: colors.faint, fontSize: font.small },
 
-  // --- Featured hero ------------------------------------------------------
-  featuredPanel: {
-    backgroundColor: colors.raised,
-    borderWidth: 1,
-    borderColor: colors.lineStrong,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
-    borderRadius: radius.lg,
-    padding: space.lg,
-    marginBottom: space.md,
-  },
-  featuredLabel: {
-    fontSize: font.micro,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.accent,
-  },
-  featuredName: {
-    fontSize: font.title,
-    fontWeight: "800",
-    color: colors.text,
-    marginTop: space.xs,
-  },
-  featuredMeta: { fontSize: font.small, color: colors.muted, marginTop: 2 },
-  featuredButtonRow: { flexDirection: "row", gap: space.sm, marginTop: space.md },
-  featuredButton: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.lineStrong,
-  },
-  featuredButtonActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  featuredButtonText: { color: colors.muted, fontSize: font.small, fontWeight: "600" },
-  featuredButtonTextActive: { color: colors.onAccent },
-
-  // --- Team breakdown -----------------------------------------------------
-  teamPanel: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: space.md,
-    marginBottom: space.md,
-  },
-  teamPanelTitle: {
-    fontSize: font.micro,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.faint,
-    marginBottom: space.sm,
-  },
-  teamPanelItem: { color: colors.text, fontSize: font.body, paddingVertical: 2 },
-
-  // --- Hero cards ---------------------------------------------------------
-  scrollView: { marginTop: space.md },
-  heroCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    padding: space.lg,
-    marginBottom: space.md,
-  },
-  heroHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    paddingRight: space.xl,
-  },
-  heroName: { fontSize: font.large, fontWeight: "800", color: colors.text, flexShrink: 1 },
-  // Tinted per team at the call site — the roster is only scannable if the two
-  // teams look different.
-  teamBadge: {
-    fontSize: font.micro,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    paddingHorizontal: space.sm,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    overflow: "hidden",
-  },
-  realName: { color: colors.muted, fontSize: font.small, marginTop: space.xs },
-  powersLabel: {
-    fontSize: font.micro,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    color: colors.faint,
-    marginTop: space.md,
-    marginBottom: space.xs,
-  },
-  powerItem: { color: colors.text, fontSize: font.small, lineHeight: 20 },
-  tapHint: { color: colors.accent, fontSize: font.small, fontWeight: "600", marginTop: space.md },
-
-  favoriteButton: {
-    position: "absolute",
-    top: space.md,
-    right: space.md,
-    // 44pt target without changing the layout around it.
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  favoriteButtonText: { fontSize: 22, color: colors.avengers },
-
-  // --- Snap controls ------------------------------------------------------
-  controlsContainer: { flexDirection: "row", gap: space.sm, marginBottom: space.md },
-  snapButton: {
-    flex: 1,
-    backgroundColor: colors.avengers,
-    borderRadius: radius.md,
-    paddingVertical: space.md,
-    alignItems: "center",
-  },
-  snapButtonDisabled: { backgroundColor: colors.line },
-  snapButtonText: { color: colors.text, fontWeight: "700", fontSize: font.body },
-  undoButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.lineStrong,
-    borderRadius: radius.md,
-    paddingVertical: space.md,
-    alignItems: "center",
-  },
-  undoButtonText: { color: colors.text, fontWeight: "700", fontSize: font.body },
-
-  // --- Counters -----------------------------------------------------------
-  heroCount: { color: colors.muted, fontSize: font.small },
-  leadHeroLabel: { color: colors.faint, fontSize: font.small, marginTop: 2 },
-  favoriteCount: { color: colors.faint, fontSize: font.small, marginTop: 2 },
+  // --- Roster grid --------------------------------------------------------
+  // Padding gutters rather than `gap`, because percentage flex-basis plus gap
+  // rounds up and overflows the row on web.
+  grid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -space.sm },
+  cell: { padding: space.sm },
   emptyState: {
     color: colors.muted,
     fontSize: font.body,
     textAlign: "center",
-    paddingVertical: space.xxl,
+    paddingVertical: space.section,
   },
 
-  // --- Archive ------------------------------------------------------------
-  archivePanel: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    padding: space.lg,
-    marginBottom: space.md,
+  snapRow: { flexDirection: "row", gap: space.sm, marginTop: space.lg },
+
+  // --- Footer band --------------------------------------------------------
+  footerBand: { flexDirection: "row", flexWrap: "wrap", gap: space.xl, marginTop: space.section },
+  footerColumn: { flexGrow: 1, flexBasis: 260, marginBottom: 0 },
+  footerControls: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.md },
+  featuredName: {
+    fontSize: font.title,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 2,
   },
+  teamPanelItem: { color: colors.text, fontSize: font.body, paddingVertical: 2 },
+
+  // --- Archive ------------------------------------------------------------
+  archivePanel: { marginTop: space.section },
   archiveHeader: {
     flexDirection: "row",
     alignItems: "baseline",
     justifyContent: "space-between",
+    gap: space.md,
     marginBottom: space.md,
+    paddingBottom: space.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
   },
-  archiveTitle: { fontSize: font.large, fontWeight: "800", color: colors.text },
+  archiveTitle: { fontSize: font.large, fontWeight: "700", color: colors.text },
   archiveCount: { fontSize: font.small, color: colors.muted },
-  archiveControls: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: space.sm,
-    marginBottom: space.md,
-  },
+  archiveControls: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingRight: space.lg },
   archiveInput: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.sm,
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    minHeight: 44,
     color: colors.text,
     fontSize: font.small,
     marginBottom: space.sm,
   },
-  archiveGrid: { gap: space.sm },
+  archiveGrid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -space.xs, marginTop: space.md },
+  archiveCell: { padding: space.xs, flexBasis: "50%", maxWidth: "50%" },
   archiveCard: {
-    backgroundColor: colors.raised,
+    flex: 1,
+    backgroundColor: colors.surface,
     borderRadius: radius.sm,
     padding: space.md,
     borderWidth: 1,
     borderColor: colors.line,
+    cursor: "pointer",
   },
-  archiveCardHighlighted: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentDim + "33",
-  },
+  archiveCardHighlighted: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   archiveCardName: { fontWeight: "700", color: colors.text, marginBottom: 2 },
   archiveCardMeta: { color: colors.faint, fontSize: font.micro, marginBottom: space.xs },
-  archiveCardNote: { color: colors.muted, fontSize: font.small },
+  archiveCardNote: { color: colors.muted, fontSize: font.small, lineHeight: 19 },
   archiveEmpty: {
     color: colors.muted,
     fontSize: font.small,
@@ -712,55 +508,41 @@ function HeroArchivePanel() {
         onChangeText={setQuery}
       />
 
-      <View style={styles.archiveControls}>
+      {/* Horizontal rail, same as the roster's — seven pills in a wrapping row
+          broke at ragged widths. "Next Spotlight" is an action rather than a
+          toggle, so it is a Button; previously it was a pill identical to the
+          six radio buttons beside it and there was no way to tell them apart. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.archiveControls}
+      >
         {(["All", "Avengers", "Justice League"] as const).map((team) => (
-          <Pressable
+          <Pill
             key={team}
             testID={`archive-team-${team}`}
-            style={[
-              styles.filterButton,
-              teamFilter === team && styles.filterButtonActive,
-            ]}
+            label={team}
+            selected={teamFilter === team}
             onPress={() => setTeamFilter(team)}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                teamFilter === team && styles.filterButtonTextActive,
-              ]}
-            >
-              {team}
-            </Text>
-          </Pressable>
+          />
         ))}
+        <View style={styles.railDivider} />
         {(["index", "hero", "era"] as const).map((mode) => (
-          <Pressable
+          <Pill
             key={mode}
             testID={`archive-sort-${mode}`}
-            style={[
-              styles.filterButton,
-              sortMode === mode && styles.filterButtonActive,
-            ]}
+            label={mode}
+            selected={sortMode === mode}
             onPress={() => setSortMode(mode)}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                sortMode === mode && styles.filterButtonTextActive,
-              ]}
-            >
-              {mode}
-            </Text>
-          </Pressable>
+          />
         ))}
-        <Pressable
+        <View style={styles.railDivider} />
+        <Button
           testID="archive-spotlight-next"
-          style={styles.filterButton}
+          label="Next Spotlight"
           onPress={() => setSpotlightIndex((current) => current + 1)}
-        >
-          <Text style={styles.filterButtonText}>Next Spotlight</Text>
-        </Pressable>
-      </View>
+        />
+      </ScrollView>
 
       <Text testID="archive-spotlight" style={styles.archiveCardMeta}>
         {spotlight
@@ -772,27 +554,34 @@ function HeroArchivePanel() {
         {sorted.length === 0 ? (
           <Text style={styles.archiveEmpty}>No archive entries match.</Text>
         ) : (
-          sorted.slice(0, 12).map((entry) => {
+          // Was 12. Four is enough to show what the archive is; it is a
+          // secondary panel, not the page.
+          sorted.slice(0, 4).map((entry) => {
             const isPinned = pinnedIndexes.includes(entry.index);
 
             return (
-              <Pressable
-                key={entry.index}
-                testID={`archive-entry-${entry.index}`}
-                style={[
-                  styles.archiveCard,
-                  isPinned && styles.archiveCardHighlighted,
-                ]}
-                onPress={() => togglePinned(entry.index)}
-              >
-                <Text style={styles.archiveCardName}>
-                  #{entry.index} {entry.hero}
-                </Text>
-                <Text style={styles.archiveCardMeta}>
-                  {entry.city} • {entry.era} • {entry.team}
-                </Text>
-                <Text style={styles.archiveCardNote}>{entry.note}</Text>
-              </Pressable>
+              <View key={entry.index} style={styles.archiveCell}>
+                <Pressable
+                  testID={`archive-entry-${entry.index}`}
+                  onPress={() => togglePinned(entry.index)}
+                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                    styles.archiveCard,
+                    hovered && { borderColor: colors.lineStrong },
+                    isPinned && styles.archiveCardHighlighted,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Text style={styles.archiveCardName}>
+                    #{entry.index} {entry.hero}
+                  </Text>
+                  <Text style={styles.archiveCardMeta}>
+                    {entry.city} • {entry.era} • {entry.team}
+                  </Text>
+                  <Text style={styles.archiveCardNote} numberOfLines={2}>
+                    {entry.note}
+                  </Text>
+                </Pressable>
+              </View>
             );
           })
         )}

@@ -76,16 +76,23 @@ export default function Detail() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Power Summary</Text>
-        {powerScore === null && (
+        {/* These were rendering unconditionally under the "no stat block"
+            message, so a hero without stats showed "No stat block on file"
+            followed by "Power score: /60" and "Strongest stat: Unknown" —
+            React renders null as nothing, so the number just vanished. */}
+        {powerScore === null ? (
           <Text style={styles.sectionText}>No stat block on file for this hero.</Text>
+        ) : (
+          <>
+            <Text style={styles.sectionText}>Power score: {powerScore}/60</Text>
+            <Text style={styles.sectionText}>
+              Strongest stat:{" "}
+              {bestStat
+                ? `${bestStat[0].charAt(0).toUpperCase()}${bestStat[0].slice(1)} (${bestStat[1]}/10)`
+                : "Unknown"}
+            </Text>
+          </>
         )}
-        <Text style={styles.sectionText}>Power score: {powerScore}/60</Text>
-        <Text style={styles.sectionText}>
-          Strongest stat:{" "}
-          {bestStat
-            ? `${bestStat[0].charAt(0).toUpperCase()}${bestStat[0].slice(1)} (${bestStat[1]}/10)`
-            : "Unknown"}
-        </Text>
       </View>
 
       <View style={styles.section}>
